@@ -278,6 +278,61 @@ For full model fine-tuning, the weights will be saved as `model_weights.safetens
 
 ---
 
+## Fast and simple: Running the Complete Pipeline as one command
+
+For a streamlined experience, you can use `run_pipeline.py` which automates the entire training workflow. For example provide it with a template configuration which will be instantiated based on the provided values and media files.
+
+```bash
+python scripts/run_pipeline.py [LORA_BASE_NAME] \
+    --resolution-buckets "768x768x49" \
+    --config-template configs/ltxv_2b_lora_template.yaml \
+    --rank 32
+```
+
+This script will:
+
+1. Process raw videos in `my_project_raw/` directory (if they exist):
+   - Split long videos into scenes
+   - Save scenes to `my_project_scenes/`
+
+2. Generate captions for the scenes (if scenes exist):
+   - Uses LLaVA-Next-7B for captioning
+   - Saves captions to `my_project_scenes/captions.json`
+
+3. Preprocess the dataset:
+   - Computes and caches video latents
+   - Computes and caches text embeddings
+   - Decodes videos for verification
+
+4. Run the training:
+   - Uses the provided config template
+   - Automatically extracts validation prompts from captions
+   - Saves the final model weights
+
+5. Convert LoRA to ComfyUI format:
+   - Automatically converts the trained LoRA weights to ComfyUI format
+   - Saves the converted weights with "_comfy" suffix
+
+Required arguments:
+- `basename`: Base name for your project (e.g., "my_project")
+- `--resolution-buckets`: Video resolution in format "WxHxF" (e.g., "768x768x49")
+- `--config-template`: Path to your configuration template file
+- `--rank`: LoRA rank (1-128) for training
+
+The script will create the following directory structure:
+```
+my_project_raw/          # Place your raw videos here
+my_project_scenes/       # Split scenes and captions
+└── .precomputed/       # Preprocessed data
+    ├── latents/       # Cached video latents
+    ├── conditions/    # Cached text embeddings
+    └── decoded_videos/ # Decoded videos for verification
+outputs/                # Training outputs and checkpoints
+    └── lora_weights_comfy.safetensors  # ComfyUI-compatible LoRA weights
+```
+
+---
+
 ## 🔌 Using Trained LoRAs in ComfyUI
 
 After training your LoRA, you can use it in ComfyUI by following these steps:

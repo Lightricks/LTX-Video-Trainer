@@ -25,7 +25,6 @@ Advanced usage:
     scenes_split.py input.mp4 output_dir/ --detector adaptive --threshold 3.0 --adaptive-window 10
 """
 
-import shutil
 from enum import Enum
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -125,16 +124,6 @@ def validate_output_dir(output_dir: str) -> Path:
 
     if path.exists() and not path.is_dir():
         raise typer.BadParameter(f"{output_dir} exists but is not a directory")
-
-    if path.exists() and path.is_dir() and next(path.iterdir(), None):
-        if not typer.confirm(
-            f"Output directory {output_dir} already exists and contains files. Keep it?",
-            default=True,
-        ):
-            shutil.rmtree(path)
-            path.mkdir(parents=True, exist_ok=True)
-        else:
-            typer.echo(f"Output directory {output_dir} retained.")
 
     return path
 

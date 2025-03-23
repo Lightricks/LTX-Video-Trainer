@@ -202,7 +202,7 @@ def _get_media_files(
     recursive: bool = False,
 ) -> list[Path]:
     """Get all media files from the input path."""
-
+    input_path = Path(input_path)
     # Normalize extensions to lowercase without dots
     extensions = [ext.lower().lstrip(".") for ext in extensions]
 
@@ -462,10 +462,10 @@ def main(  # noqa: PLR0913
             output = input_path / "dataset.json"
     else:
         # Determine format from file extension
-        output_format = OutputFormat(output.suffix.lstrip(".").lower())
+        output_format = OutputFormat(Path(output).suffix.lstrip(".").lower())
 
     # Ensure output path is absolute
-    output = output.resolve()
+    output = Path(output).resolve()
     console.print(f"Output will be saved to [bold blue]{output}[/]")
 
     # Initialize captioning model
