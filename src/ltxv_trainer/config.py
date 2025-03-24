@@ -246,6 +246,22 @@ class CheckpointsConfig(ConfigBaseModel):
     )
 
 
+class HubConfig(ConfigBaseModel):
+    """Configuration for Hugging Face Hub integration"""
+
+    push_to_hub: bool = Field(
+        default=False,
+        description="Whether to push the model weights to the Hugging Face Hub"
+    )
+    hub_model_id: str = Field(
+        default=None,
+        description="Hugging Face Hub repository ID (e.g., 'username/repo-name')"
+    )
+    hub_token: str = Field(
+        default=None,
+        description="Hugging Face token. If None, will use the token from the Hugging Face CLI"
+    )
+
 class FlowMatchingConfig(ConfigBaseModel):
     """Configuration for flow matching training"""
 
@@ -271,6 +287,7 @@ class LtxvTrainerConfig(ConfigBaseModel):
     data: DataConfig = Field(default_factory=DataConfig)
     validation: ValidationConfig = Field(default_factory=ValidationConfig)
     checkpoints: CheckpointsConfig = Field(default_factory=CheckpointsConfig)
+    hub: HubConfig = Field(default_factory=HubConfig)
     flow_matching: FlowMatchingConfig = Field(default_factory=FlowMatchingConfig)
 
     # General configuration
