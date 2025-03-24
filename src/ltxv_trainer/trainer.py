@@ -14,6 +14,7 @@ from accelerate import Accelerator
 from accelerate.utils import set_seed
 from diffusers import LTXPipeline
 from diffusers.utils import export_to_video
+from huggingface_hub import create_repo, upload_folder
 from loguru import logger
 from peft import LoraConfig, get_peft_model_state_dict
 from peft.tuners.tuners_utils import BaseTunerLayer
@@ -285,6 +286,15 @@ class LtxvTrainer:
 
             if self._accelerator.is_main_process:
                 saved_path = self._save_checkpoint()
+
+                # Upload artifacts to hub if enabled
+                if cfg.hub.push_to_hub:
+                    repo_id = cfg.hub.hub_model_id or Path(cfg.output_dir).name
+                    repo_id = create_repo(token=cfg.hub.hub_token, repo_id=repo_id, exist_ok=True)
+                    upload_folder(
+                        repo_id=repo_id,
+                        folder_path=Path(self._config.output_dir),
+                    )
 
                 # Log the training statistics
                 self._log_training_stats(stats)
