@@ -3,9 +3,10 @@ import subprocess
 from pathlib import Path
 
 import torch
-from loguru import logger
 from PIL import ExifTags, Image, ImageCms, ImageOps
 from PIL.Image import Image as PilImage
+
+from ltxv_trainer import logger
 
 
 def get_gpu_memory_gb(device: torch.device) -> float:

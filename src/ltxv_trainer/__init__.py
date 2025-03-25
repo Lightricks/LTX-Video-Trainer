@@ -1,17 +1,38 @@
-import sys
+import logging
+import os
 
-from loguru import logger
+from accelerate.logging import get_logger
+from rich.logging import RichHandler
 
-# Configure the default logger:
-logger.remove()
+# Get the process rank
+IS_MULTI_GPU = os.environ.get("LOCAL_RANK") is not None
+RANK = int(os.environ.get("LOCAL_RANK", "0"))
 
-# DEBUG, and INFO messages go to stdout
-logger.add(
-    sys.stdout,
-    format="<lvl>{message}</lvl>",
-    level="DEBUG",
-    filter=lambda record: record["level"].name in ["DEBUG", "INFO"],
+# Configure with Rich
+logging.basicConfig(
+    level="INFO",
+    format=f"\\[rank {RANK}] %(message)s" if IS_MULTI_GPU else "%(message)s",
+    handlers=[
+        RichHandler(
+            rich_tracebacks=True,
+            show_time=False,
+            markup=True,
+        )
+    ],
 )
 
-# WARNING and above go to stderr
-logger.add(sys.stderr, format="<lvl>{message}</lvl>", level="WARNING")
+# Get the logger and configure it
+logger = get_logger("ltxv_trainer")
+logger.setLevel(logging.DEBUG)
+logger.propagate = True
+
+# Set level based on process
+if RANK != 0:
+    logger.setLevel(logging.WARNING)
+
+# Expose common logging functions directly
+debug = logger.debug
+info = logger.info
+warning = logger.warning
+error = logger.error
+critical = logger.critical
