@@ -98,6 +98,8 @@ def save_model_card(
                     "output": {"url": video if isinstance(video, str) else f"final_video_{i}.mp4"},
                 }
             )
+    if pretrained_model_name_or_path not in ["Lightricks/LTX-Video", "Lightricks/LTX-Video-0.9.5"]:
+        pretrained_model_name_or_path = "Lightricks/LTX-Video"
 
     model_description = f"""
 # LoRA Finetune
@@ -118,6 +120,62 @@ The model was trained using [`LTX-Video Community Trainer`](https://github.com/L
 
 ### Using Trained LoRAs with `diffusers`:
 Requires the [🧨 Diffusers library](https://github.com/huggingface/diffusers) installed.
+
+Text-to-Video generation using the trained LoRA:
+```python
+import torch
+from diffusers import LTXPipeline
+from diffusers.utils import export_to_video
+from huggingface_hub import hf_hub_download
+
+pipe = LTXPipeline.from_pretrained("Lightricks/LTX-Video", torch_dtype=torch.bfloat16)
+lora_weights = hf_hub_download(repo_id={repo_id}, filename="path_to_your_saved_weights.safetensors")
+state_dict = load_file(lora_weights)
+pipe.load_lora_weights(state_dict)
+pipe.to("cuda")
+
+prompt = "{validation_prompts[0]}"
+negative_prompt = "worst quality, inconsistent motion, blurry, jittery, distorted"
+video = pipe(
+    prompt=prompt,
+    negative_prompt=negative_prompt,
+    width=704,
+    height=480,
+    num_frames=161,
+    num_inference_steps=50,
+).frames[0]
+export_to_video(video, "output.mp4", fps=24)
+```
+
+For Image-to-Video:
+```python
+import torch
+from diffusers import LTXImageToVideoPipeline
+from diffusers.utils import export_to_video, load_image
+
+pipe = LTXImageToVideoPipeline.from_pretrained("Lightricks/LTX-Video", torch_dtype=torch.bfloat16)
+lora_weights = hf_hub_download(repo_id={repo_id}, filename="saved_weights_path.safetensors")
+state_dict = load_file(lora_weights)
+pipe.load_lora_weights(state_dict)
+pipe.to("cuda")
+
+image = load_image(
+    "url_to_your_image",
+)
+prompt = "{validation_prompts[0]}"
+negative_prompt = "worst quality, inconsistent motion, blurry, jittery, distorted"
+
+video = pipe(
+    image=image,
+    prompt=prompt,
+    negative_prompt=negative_prompt,
+    width=704,
+    height=480,
+    num_frames=161,
+    num_inference_steps=50,
+).frames[0]
+export_to_video(video, "output.mp4", fps=24)
+```
 
 ### 🔌 Using Trained LoRAs in ComfyUI
 
@@ -156,6 +214,7 @@ For more details, including weighting, merging and fusing LoRAs, check the [docu
     )
     tags = [
         "text-to-video",
+        "image-to-video",
         "ltx-video"
         "diffusers",
         "lora",
