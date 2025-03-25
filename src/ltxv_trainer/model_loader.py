@@ -160,7 +160,7 @@ def load_vae(
     """
     if isinstance(source, str):  # noqa: SIM102
         # Try to parse as version first
-        if version := _try_parse_version(source):
+        if version := try_parse_version(source):
             source = version
 
     if isinstance(source, LtxvModelVersion):
@@ -217,7 +217,7 @@ def load_transformer(
     """
     if isinstance(source, str):  # noqa: SIM102
         # Try to parse as version first
-        if version := _try_parse_version(source):
+        if version := try_parse_version(source):
             source = version
 
     if isinstance(source, LtxvModelVersion):
@@ -285,7 +285,7 @@ def load_ltxv_components(
     )
 
 
-def _try_parse_version(source: str | Path) -> LtxvModelVersion | None:
+def try_parse_version(source: str | Path) -> LtxvModelVersion | None:
     """
     Try to parse a string as an LtxvModelVersion.
 

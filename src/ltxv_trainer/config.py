@@ -1,7 +1,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ltxv_trainer.model_loader import LtxvModelVersion
 from ltxv_trainer.quantization import QuantizationOptions
@@ -249,18 +249,18 @@ class CheckpointsConfig(ConfigBaseModel):
 class HubConfig(ConfigBaseModel):
     """Configuration for Hugging Face Hub integration"""
 
-    push_to_hub: bool = Field(
-        default=False,
-        description="Whether to push the model weights to the Hugging Face Hub"
+    push_to_hub: bool = Field(default=False, description="Whether to push the model weights to the Hugging Face Hub")
+    hub_model_id: str | None = Field(
+        default=None, description="Hugging Face Hub repository ID (e.g., 'username/repo-name')"
     )
-    hub_model_id: str = Field(
-        default=None,
-        description="Hugging Face Hub repository ID (e.g., 'username/repo-name')"
-    )
-    hub_token: str = Field(
-        default=None,
-        description="Hugging Face token. If None, will use the token from the Hugging Face CLI"
-    )
+
+    @model_validator(mode="after")
+    def validate_hub_config(self) -> "HubConfig":
+        """Validate that hub_model_id is not None when push_to_hub is True."""
+        if self.push_to_hub and not self.hub_model_id:
+            raise ValueError("hub_model_id must be specified when push_to_hub is True")
+        return self
+
 
 class FlowMatchingConfig(ConfigBaseModel):
     """Configuration for flow matching training"""

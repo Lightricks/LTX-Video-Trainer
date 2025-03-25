@@ -302,6 +302,27 @@ The trainer loads your configuration, initializes models, applies optimizations,
 For LoRA training, the weights will be saved as `lora_weights.safetensors` in your output directory.
 For full model fine-tuning, the weights will be saved as `model_weights.safetensors`.
 
+### 🤗 Pushing Models to Hugging Face Hub
+
+You can automatically push your trained models to the Hugging Face Hub by adding the following to your configuration YAML:
+
+```yaml
+hub:
+  push_to_hub: true
+  hub_model_id: "your-username/your-model-name"  # Your HF username and desired repo name
+```
+
+Before pushing, make sure you:
+1. Have a Hugging Face account
+2. Are logged in via `huggingface-cli login` or have set the `HUGGING_FACE_HUB_TOKEN` environment variable
+3. Have write access to the specified repository (it will be created if it doesn't exist)
+
+The trainer will:
+- Create a model card with training details and sample outputs
+- Upload the model weights (both original and ComfyUI-compatible versions)
+- Push sample videos as GIFs in the model card
+- Include training configuration and prompts
+
 ---
 
 ## Fast and simple: Running the Complete Pipeline as one command

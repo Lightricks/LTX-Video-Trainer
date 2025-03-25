@@ -13,7 +13,6 @@ from accelerate import Accelerator
 from accelerate.utils import set_seed
 from diffusers import LTXImageToVideoPipeline, LTXPipeline
 from diffusers.utils import export_to_video
-from huggingface_hub import create_repo, upload_folder
 from loguru import logger
 from peft import LoraConfig, get_peft_model_state_dict
 from peft.tuners.tuners_utils import BaseTunerLayer
@@ -47,11 +46,11 @@ from torch.utils.data import DataLoader
 
 from ltxv_trainer.config import LtxvTrainerConfig
 from ltxv_trainer.datasets import PrecomputedDataset
+from ltxv_trainer.hub_utils import push_to_hub
 from ltxv_trainer.model_loader import load_ltxv_components
 from ltxv_trainer.quantization import quantize_model
 from ltxv_trainer.timestep_samplers import SAMPLERS
 from ltxv_trainer.utils import get_gpu_memory_gb, open_image_as_srgb
-
 
 # Disable irrelevant warnings from transformers
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
@@ -157,6 +156,8 @@ class LtxvTrainer:
         # Track when actual training starts (after compilation)
         actual_training_start = None
 
+        sampled_videos_paths = None
+
         with Live(Panel(Group(train_progress, sample_progress)), refresh_per_second=2):
             task = train_progress.add_task(
                 "Training",
@@ -167,7 +168,7 @@ class LtxvTrainer:
             )
 
             if cfg.validation.interval:
-                self._sample_videos(sample_progress)
+                sampled_videos_paths = self._sample_videos(sample_progress)
 
             for step in range(cfg.optimization.steps):
                 # Get next batch, reset the dataloader if needed
@@ -204,7 +205,6 @@ class LtxvTrainer:
 
                     if self._lr_scheduler is not None:
                         self._lr_scheduler.step()
-
                     # Run validation if needed
                     if (
                         cfg.validation.interval
@@ -295,22 +295,7 @@ class LtxvTrainer:
 
                 # Upload artifacts to hub if enabled
                 if cfg.hub.push_to_hub:
-                    repo_id = cfg.hub.hub_model_id or Path(cfg.output_dir).name
-                    repo_id = create_repo(token=cfg.hub.hub_token, repo_id=repo_id, exist_ok=True)
-                    video_filenames = sampled_videos_paths if sampled_videos_paths else []
-
-                    save_model_card(
-                        output_dir=cfg.output_dir,
-                        repo_id=repo_id,
-                        pretrained_model_name_or_path=cfg.model.model_source,
-                        videos=video_filenames,
-                        validation_prompts=self._config.validation.prompts
-                    )
-
-                    upload_folder(
-                        repo_id=repo_id,
-                        folder_path=Path(self._config.output_dir),
-                    )
+                    push_to_hub(saved_path, sampled_videos_paths, self._config)
 
                 # Log the training statistics
                 self._log_training_stats(stats)
