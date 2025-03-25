@@ -2,8 +2,9 @@
 from typing import Literal
 
 import torch
-from loguru import logger
 from optimum.quanto import qtype
+
+from ltxv_trainer import logger
 
 QuantizationOptions = Literal[
     "no_change",

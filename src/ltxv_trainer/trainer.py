@@ -2,6 +2,7 @@ import os
 import random
 import time
 import warnings
+from contextlib import nullcontext
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
@@ -13,7 +14,6 @@ from accelerate import Accelerator
 from accelerate.utils import set_seed
 from diffusers import LTXPipeline
 from diffusers.utils import export_to_video
-from loguru import logger
 from peft import LoraConfig, get_peft_model_state_dict
 from peft.tuners.tuners_utils import BaseTunerLayer
 from peft.utils import ModulesToSaveWrapper
@@ -44,6 +44,7 @@ from torch.optim.lr_scheduler import (
 )
 from torch.utils.data import DataLoader
 
+from ltxv_trainer import logger
 from ltxv_trainer.config import LtxvTrainerConfig
 from ltxv_trainer.datasets import PrecomputedDataset
 from ltxv_trainer.model_loader import load_ltxv_components
@@ -59,9 +60,17 @@ warnings.filterwarnings(
     "ignore", message="MatMul8bitLt: inputs will be cast from torch.bfloat16 to float16 during quantization"
 )
 
+# Disable progress bars if not main process
+IS_MAIN_PROCESS = os.environ.get("LOCAL_RANK", "0") != "0"
+if IS_MAIN_PROCESS:
+    from transformers.utils.logging import disable_progress_bar
+
+    disable_progress_bar()
+
 StepCallback = Callable[[int, int, list[Path]], None]  # (step, total, list[sampled_video_path]) -> None
 
 COMPILE_WARMUP_STEPS = 5
+MEMORY_CHECK_INTERVAL = 200
 
 
 class TrainingStats(BaseModel):
@@ -73,6 +82,8 @@ class TrainingStats(BaseModel):
     steps_per_second: float
     samples_per_second: float
     peak_gpu_memory_gb: float
+    global_batch_size: int
+    num_processes: int
 
 
 class LtxvTrainer:
@@ -85,6 +96,7 @@ class LtxvTrainer:
         self._compile_transformer()
         self._collect_trainable_params()
         self._load_checkpoint()
+        self._prepare_models_for_training()
         self._dataset = None
         self._global_step = -1
         self._checkpoint_paths = []
@@ -104,7 +116,10 @@ class LtxvTrainer:
         start_mem = get_gpu_memory_gb(device)
 
         train_start_time = time.time()
+
+        # Use the same seed for all processes and ensure deterministic operations
         set_seed(cfg.seed)
+        logger.debug(f"Process {self._accelerator.process_index} using seed: {cfg.seed}")
 
         if cfg.model.training_mode == "lora" and not cfg.model.load_checkpoint:
             self._init_lora_weights()
@@ -113,15 +128,20 @@ class LtxvTrainer:
         self._init_dataloader()
         self._init_timestep_sampler()
 
+        # Synchronize all processes after initialization
+        self._accelerator.wait_for_everyone()
+
         Path(cfg.output_dir).mkdir(parents=True, exist_ok=True)
 
         logger.info("🚀 Starting training...")
 
         # Create progress columns with simplified styling
-        if disable_progress_bars:
+        if disable_progress_bars or not IS_MAIN_PROCESS:
             train_progress = MagicMock()
             sample_progress = MagicMock()
-            logger.warning("Progress bars disabled. Status messages will be printed occasionally instead.")
+            live = nullcontext()
+            if IS_MAIN_PROCESS:
+                logger.warning("Progress bars disabled. Status messages will be printed occasionally instead.")
         else:
             train_progress = Progress(
                 TextColumn("Training Step"),
@@ -145,6 +165,8 @@ class LtxvTrainer:
                 TimeRemainingColumn(compact=True),
             )
 
+            live = Live(Panel(Group(train_progress, sample_progress)), refresh_per_second=2)
+
         self._transformer.train()
         self._global_step = 0
 
@@ -155,7 +177,7 @@ class LtxvTrainer:
         # Track when actual training starts (after compilation)
         actual_training_start = None
 
-        with Live(Panel(Group(train_progress, sample_progress)), refresh_per_second=2):
+        with live:
             task = train_progress.add_task(
                 "Training",
                 total=cfg.optimization.steps,
@@ -164,8 +186,9 @@ class LtxvTrainer:
                 step_time=0.0,
             )
 
-            if cfg.validation.interval:
+            if cfg.validation.interval and IS_MAIN_PROCESS:
                 self._sample_videos(sample_progress)
+            self._accelerator.wait_for_everyone()
 
             for step in range(cfg.optimization.steps):
                 # Get next batch, reset the dataloader if needed
@@ -209,7 +232,7 @@ class LtxvTrainer:
                         and self._global_step > 0
                         and self._global_step % cfg.validation.interval == 0
                         and is_optimization_step
-                        and self._accelerator.is_main_process
+                        and IS_MAIN_PROCESS
                     ):
                         sampled_videos_paths = self._sample_videos(sample_progress)
 
@@ -219,9 +242,11 @@ class LtxvTrainer:
                         and self._global_step > 0
                         and self._global_step % cfg.checkpoints.interval == 0
                         and is_optimization_step
-                        and self._accelerator.is_main_process
+                        and IS_MAIN_PROCESS
                     ):
                         self._save_checkpoint()
+
+                    self._accelerator.wait_for_everyone()
 
                     # Call step callback if provided
                     if step_callback and is_optimization_step:
@@ -230,7 +255,7 @@ class LtxvTrainer:
                     self._accelerator.wait_for_everyone()
 
                     # Update progress
-                    if self._accelerator.is_main_process:
+                    if IS_MAIN_PROCESS:
                         current_lr = self._optimizer.param_groups[0]["lr"]
                         elapsed = time.time() - train_start_time
                         progress_percentage = self._global_step / cfg.optimization.steps
@@ -256,8 +281,8 @@ class LtxvTrainer:
                                 f"Time/Step: {step_time:.2f}s, Total Time: {total_time}",
                             )
 
-                    # Sample GPU memory periodically (every 25 steps)
-                    if step % 25 == 0:
+                    # Sample GPU memory periodically
+                    if step % MEMORY_CHECK_INTERVAL == 0:
                         current_mem = get_gpu_memory_gb(device)
                         peak_mem_during_training = max(peak_mem_during_training, current_mem)
 
@@ -283,16 +308,20 @@ class LtxvTrainer:
                 steps_per_second=steps_per_second,
                 samples_per_second=samples_per_second,
                 peak_gpu_memory_gb=peak_mem,
+                num_processes=self._accelerator.num_processes,
+                global_batch_size=cfg.optimization.batch_size * self._accelerator.num_processes,
             )
 
             train_progress.remove_task(task)
             self._accelerator.end_training()
 
-            if self._accelerator.is_main_process:
+            if IS_MAIN_PROCESS:
                 saved_path = self._save_checkpoint()
 
                 # Log the training statistics
                 self._log_training_stats(stats)
+
+            self._accelerator.end_training()
 
             return saved_path, stats
 
@@ -357,12 +386,14 @@ class LtxvTrainer:
 
     def _print_config(self, config: BaseModel) -> None:
         """Print the configuration as a nicely formatted table."""
+        if not IS_MAIN_PROCESS:
+            return
 
         from rich.table import Table
 
         table = Table(title="⚙️ Training Configuration", show_header=True, header_style="bold green")
-        table.add_column("Parameter", style="white")
-        table.add_column("Value", style="cyan")
+        table.add_column("Parameter", style="bold white")
+        table.add_column("Value", style="bold cyan")
 
         def flatten_config(cfg: BaseModel, prefix: str = "") -> list[tuple[str, str]]:
             rows = []
@@ -386,7 +417,6 @@ class LtxvTrainer:
 
     def _load_models(self) -> None:
         """Load the LTXV model components."""
-        prepare = self._accelerator.prepare
 
         # Load all model components using the new loader
         components = load_ltxv_components(
@@ -399,30 +429,24 @@ class LtxvTrainer:
         # Prepare components with accelerator
         self._scheduler = components.scheduler
         self._tokenizer = components.tokenizer
-        self._text_encoder = prepare(components.text_encoder, device_placement=[False])
-        self._vae = prepare(components.vae, device_placement=[False])
-        transformer = components.transformer
+        self._text_encoder = components.text_encoder
+        self._vae = components.vae
+        self._transformer = components.transformer
 
         if self._config.acceleration.quantization is not None:
             if self._config.model.training_mode == "full":
                 raise ValueError("Quantization is not supported in full training mode.")
 
             logger.warning(f"Quantizing model with precision: {self._config.acceleration.quantization}")
-            transformer = quantize_model(
-                transformer,
+            self._transformer = quantize_model(
+                self._transformer,
                 precision=self._config.acceleration.quantization,
             )
-
-        self._transformer = prepare(transformer)
 
         # Freeze all models. We later unfreeze the transformer based on training mode.
         self._text_encoder.requires_grad_(False)
         self._vae.requires_grad_(False)
         self._transformer.requires_grad_(False)
-
-        # Enable gradient checkpointing if requested
-        if self._config.optimization.enable_gradient_checkpointing:
-            self._transformer.enable_gradient_checkpointing()
 
     # noinspection PyProtectedMember,PyUnresolvedReferences
     def _compile_transformer(self) -> None:
@@ -497,6 +521,19 @@ class LtxvTrainer:
             _, unexpected_keys = transformer.load_state_dict(state_dict, strict=False)
             if unexpected_keys:
                 raise ValueError(f"Failed to load some LoRA weights: {unexpected_keys}")
+
+    def _prepare_models_for_training(self) -> None:
+        prepare = self._accelerator.prepare
+        self._vae = prepare(self._vae).to("cpu")
+        self._transformer = prepare(self._transformer)
+        self._text_encoder = prepare(self._text_encoder)
+
+        if not self._config.acceleration.load_text_encoder_in_8bit:
+            self._text_encoder = self._text_encoder.to("cpu")
+
+        # Enable gradient checkpointing if requested
+        if self._config.optimization.enable_gradient_checkpointing:
+            self._transformer.enable_gradient_checkpointing()
 
     @staticmethod
     def _find_checkpoint(checkpoint_path: str | Path) -> Path | None:
@@ -635,6 +672,12 @@ class LtxvTrainer:
             gradient_accumulation_steps=self._config.optimization.gradient_accumulation_steps,
         )
 
+        # Log information about distributed training
+        if self._accelerator.num_processes > 1:
+            logger.info(f"Distributed training enabled with {self._accelerator.num_processes} processes")
+            logger.info(f"Local batch size: {self._config.optimization.batch_size}")
+            logger.info(f"Global batch size: {self._config.optimization.batch_size * self._accelerator.num_processes}")
+
     @torch.no_grad()
     @torch.compiler.set_stance("force_eager")
     def _sample_videos(self, progress: Progress) -> list[Path] | None:
@@ -647,10 +690,10 @@ class LtxvTrainer:
 
         pipeline = LTXPipeline(
             scheduler=deepcopy(self._scheduler),
-            vae=self._vae,
-            text_encoder=self._text_encoder,
+            vae=self._accelerator.unwrap_model(self._vae),
+            text_encoder=self._accelerator.unwrap_model(self._text_encoder),
             tokenizer=self._tokenizer,
-            transformer=self._transformer,
+            transformer=self._accelerator.unwrap_model(self._transformer),
         )
         pipeline.set_progress_bar_config(disable=True)
 
@@ -708,6 +751,11 @@ class LtxvTrainer:
         logger.info(f"Training speed: {stats.steps_per_second:.2f} steps/second")
         logger.info(f"Samples/second: {stats.samples_per_second:.2f}")
         logger.info(f"Peak GPU memory: {stats.peak_gpu_memory_gb:.2f} GB")
+
+        # Add logging for distributed training
+        if stats.num_processes > 1:
+            logger.info(f"Number of processes: {stats.num_processes}")
+            logger.info(f"Global batch size: {stats.global_batch_size}")
 
     def _save_checkpoint(self) -> Path:
         """Save the model weights."""

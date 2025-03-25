@@ -2,9 +2,9 @@
 
 import json  # noqa: I001
 import random
+
 from pathlib import Path
 from typing import Any, Iterator
-from loguru import logger
 from pillow_heif import register_heif_opener
 from torch import Tensor
 from torch.utils.data import Dataset, Sampler
@@ -16,6 +16,8 @@ import pandas as pd
 import torch
 import torchvision.transforms as TT  # noqa: N812
 import torchvision.transforms.functional as TTF  # noqa: N812
+
+from ltxv_trainer import logger
 from ltxv_trainer.utils import open_image_as_srgb
 
 # Should be imported after `torch` to avoid compatibility issues.
@@ -555,6 +557,7 @@ class PrecomputedDataset(Dataset):
         condition_path = self.conditions_path / self.text_conditions[index]
         conditions["latent_conditions"] = torch.load(latent_path, map_location="cpu", weights_only=True)
         conditions["text_conditions"] = torch.load(condition_path, map_location="cpu", weights_only=True)
+        conditions["idx"] = index
         return conditions
 
 
