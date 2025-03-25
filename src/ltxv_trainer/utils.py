@@ -126,12 +126,10 @@ Text-to-Video generation using the trained LoRA:
 import torch
 from diffusers import LTXPipeline
 from diffusers.utils import export_to_video
-from huggingface_hub import hf_hub_download
 
 pipe = LTXPipeline.from_pretrained("Lightricks/LTX-Video", torch_dtype=torch.bfloat16)
-lora_weights = hf_hub_download(repo_id={repo_id}, filename="path_to_your_saved_weights.safetensors")
-state_dict = load_file(lora_weights)
-pipe.load_lora_weights(state_dict)
+pipe.load_lora_weights("{repo_id}", adapter_name="ltxv-lora")
+pipe.set_adapters(["ltxv-lora"], [0.75])
 pipe.to("cuda")
 
 prompt = "{validation_prompts[0]}"
@@ -141,7 +139,6 @@ video = pipe(
     negative_prompt=negative_prompt,
     width=704,
     height=480,
-    num_frames=161,
     num_inference_steps=50,
 ).frames[0]
 export_to_video(video, "output.mp4", fps=24)
@@ -154,9 +151,8 @@ from diffusers import LTXImageToVideoPipeline
 from diffusers.utils import export_to_video, load_image
 
 pipe = LTXImageToVideoPipeline.from_pretrained("Lightricks/LTX-Video", torch_dtype=torch.bfloat16)
-lora_weights = hf_hub_download(repo_id={repo_id}, filename="saved_weights_path.safetensors")
-state_dict = load_file(lora_weights)
-pipe.load_lora_weights(state_dict)
+pipe.load_lora_weights("{repo_id}", adapter_name="ltxv-lora")
+pipe.set_adapters(["ltxv-lora"], [0.75])
 pipe.to("cuda")
 
 image = load_image(
@@ -171,7 +167,6 @@ video = pipe(
     negative_prompt=negative_prompt,
     width=704,
     height=480,
-    num_frames=161,
     num_inference_steps=50,
 ).frames[0]
 export_to_video(video, "output.mp4", fps=24)
