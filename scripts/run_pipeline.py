@@ -133,12 +133,13 @@ def process_scenes(scenes_dir: Path) -> None:
     )
 
 
-def preprocess_data(scenes_dir: Path, resolution_buckets: str) -> None:
+def preprocess_data(scenes_dir: Path, resolution_buckets: str, id_token: str | None = None) -> None:
     """Preprocess the dataset using the provided resolution buckets.
 
     Args:
         scenes_dir: Directory containing split scenes and captions
         resolution_buckets: Resolution buckets string (e.g. "768x768x49")
+        id_token: Optional token to prepend to each caption (acts as a trigger word when training a LoRA)
     """
     if not scenes_dir.exists():
         console.print("[bold yellow]Scenes directory not found.[/]")
@@ -164,6 +165,7 @@ def preprocess_data(scenes_dir: Path, resolution_buckets: str) -> None:
         caption_column="caption",
         video_column="media_path",
         output_dir=str(preprocessed_dir),
+        id_token=id_token,
         decode_videos=True,  # Enable video decoding for verification
     )
 
@@ -264,6 +266,10 @@ def main(
         exists=True,
         dir_okay=False,
     ),
+    id_token: str | None = typer.Option(
+        default=None,
+        help="Optional token to prepend to each caption (acts as a trigger word when training a LoRA)",
+    ),
     rank: int = typer.Option(
         ...,
         help="LoRA rank to use for training",
@@ -292,7 +298,7 @@ def main(
 
     # Step 3: Preprocess dataset
     console.print("[bold blue]Step 3: Preprocessing dataset...[/]")
-    preprocess_data(scenes_dir, resolution_buckets)
+    preprocess_data(scenes_dir, resolution_buckets, id_token)
 
     # Step 4: Run training
     console.print("[bold blue]Step 4: Running training...[/]")

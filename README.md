@@ -291,13 +291,13 @@ python scripts/run_pipeline.py [LORA_BASE_NAME] \
 
 This script will:
 
-1. Process raw videos in `my_project_raw/` directory (if they exist):
+1. Process raw videos in `[basename]_raw/` directory (if they exist):
    - Split long videos into scenes
-   - Save scenes to `my_project_scenes/`
+   - Save scenes to `[basename]_scenes/`
 
 2. Generate captions for the scenes (if scenes exist):
    - Uses LLaVA-Next-7B for captioning
-   - Saves captions to `my_project_scenes/captions.json`
+   - Saves captions to `[basename]_scenes/captions.json`
 
 3. Preprocess the dataset:
    - Computes and caches video latents
@@ -314,15 +314,15 @@ This script will:
    - Saves the converted weights with "_comfy" suffix
 
 Required arguments:
-- `basename`: Base name for your project (e.g., "my_project")
+- `basename`: Base name for your project (e.g., "slime")
 - `--resolution-buckets`: Video resolution in format "WxHxF" (e.g., "768x768x49")
 - `--config-template`: Path to your configuration template file
 - `--rank`: LoRA rank (1-128) for training
 
 The script will create the following directory structure:
 ```
-my_project_raw/          # Place your raw videos here
-my_project_scenes/       # Split scenes and captions
+[basename]_raw/          # Place your raw videos here
+[basename]_scenes/       # Split scenes and captions
 └── .precomputed/       # Preprocessed data
     ├── latents/       # Cached video latents
     ├── conditions/    # Cached text embeddings
