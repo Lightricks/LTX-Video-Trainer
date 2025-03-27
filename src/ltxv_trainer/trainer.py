@@ -13,6 +13,7 @@ from accelerate import Accelerator
 from accelerate.utils import set_seed
 from diffusers import LTXPipeline
 from diffusers.utils import export_to_video
+from huggingface_hub import create_repo, upload_folder
 from loguru import logger
 from peft import LoraConfig, get_peft_model_state_dict
 from peft.tuners.tuners_utils import BaseTunerLayer
@@ -49,7 +50,7 @@ from ltxv_trainer.datasets import PrecomputedDataset
 from ltxv_trainer.model_loader import load_ltxv_components
 from ltxv_trainer.quantization import quantize_model
 from ltxv_trainer.timestep_samplers import SAMPLERS
-from ltxv_trainer.utils import get_gpu_memory_gb
+from ltxv_trainer.utils import get_gpu_memory_gb, save_model_card
 
 # Disable irrelevant warnings from transformers
 os.environ["TOKENIZERS_PARALLELISM"] = "true"
@@ -290,6 +291,25 @@ class LtxvTrainer:
 
             if self._accelerator.is_main_process:
                 saved_path = self._save_checkpoint()
+
+                # Upload artifacts to hub if enabled
+                if cfg.hub.push_to_hub:
+                    repo_id = cfg.hub.hub_model_id or Path(cfg.output_dir).name
+                    repo_id = create_repo(token=cfg.hub.hub_token, repo_id=repo_id, exist_ok=True)
+                    video_filenames = sampled_videos_paths if sampled_videos_paths else []
+
+                    save_model_card(
+                        output_dir=cfg.output_dir,
+                        repo_id=repo_id,
+                        pretrained_model_name_or_path=cfg.model.model_source,
+                        videos=video_filenames,
+                        validation_prompts=self._config.validation.prompts
+                    )
+
+                    upload_folder(
+                        repo_id=repo_id,
+                        folder_path=Path(self._config.output_dir),
+                    )
 
                 # Log the training statistics
                 self._log_training_stats(stats)
