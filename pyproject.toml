@@ -14,7 +14,6 @@ dependencies = [
     "diffusers>=0.32.1",
     "imageio>=2.37.0",
     "imageio-ffmpeg>=0.6.0",
-    "loguru>=0.7.3",
     "opencv-python>=4.11.0.86",
     "optimum-quanto>=0.2.6",
     "pandas>=2.2.3",
