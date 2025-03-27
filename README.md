@@ -337,20 +337,17 @@ outputs/                # Training outputs and checkpoints
 
 After training your LoRA, you can use it in ComfyUI by following these steps:
 
-1. Copy your trained LoRA weights (`.safetensors` file) to the `models/loras` folder in your ComfyUI installation.
-
-2. Install the ComfyUI-LTXVideoLoRA custom node:
+1. Convert your trained LoRA weights to ComfyUI format using the conversion script:
 
    ```bash
-   # In the root folder of your ComfyUI installation
-   cd custom_nodes
-   git clone https://github.com/dorpxam/ComfyUI-LTXVideoLoRA
-   pip install -r ComfyUI-LTXVideoLoRA/requirements.txt
+   python scripts/convert_checkpoint.py your_lora_weights.safetensors --to-comfy
    ```
 
+2. Copy the converted LoRA weights (`.safetensors` file) to the `models/loras` folder in your ComfyUI installation.
+
 3. In your ComfyUI workflow:
-   - Add the "LTXV LoRA Selector" node to choose your LoRA file
-   - Connect it to the "LTXV LoRA Loader" node to apply the LoRA to your generation
+   - Use the built-in "Load LoRA" node to load your LoRA file
+   - Connect it to your LTXV nodes to apply the LoRA to your generation
 
 You can find reference Text-to-Video (T2V) and Image-to-Video (I2V) workflows in the [official LTXV ComfyUI repository](https://github.com/Lightricks/ComfyUI-LTXVideo).
 
