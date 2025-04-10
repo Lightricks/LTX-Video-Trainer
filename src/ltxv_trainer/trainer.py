@@ -313,12 +313,12 @@ class LtxvTrainer:
 
         # Handle FPS with backward compatibility for old preprocessed datasets
         fps = latent_conditions.get("fps", None)
-        fps = fps[0].item() if fps is not None else 24
-
         if fps is not None and not torch.all(fps == fps[0]):
             logger.warning(
                 f"Different FPS values found in the batch. Found: {fps.tolist()}, using the first one: {fps[0].item()}"
             )
+
+        fps = fps[0].item() if fps is not None else 24
 
         # Get pre-encoded text conditions
         text_conditions = batch["text_conditions"]
