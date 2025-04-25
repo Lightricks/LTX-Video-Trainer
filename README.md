@@ -33,6 +33,19 @@ The repository also includes auxiliary utilities for preprocessing datasets, cap
 
 ---
 
+## 📝 Changelog
+
+- **25.04.2025:** Added support for LTXV 13B. Example training configs can be found in
+  [configs/ltxv_13b_lora_cakeify.yaml](configs/ltxv_13b_lora_cakeify.yaml) and [configs/ltxv_13b_lora_squish.yaml](configs/ltxv_13b_lora_squish.yaml).
+
+> [!NOTE]
+> When training with the LTXV 13B model:
+>
+> The training process is the same as with the 2B model, but you must enable gradient checkpointing in your configuration (`enable_gradient_checkpointing: true`).
+> We recommend using the reference configuration files provided in the `configs` directory as starting points.
+
+---
+
 ## 🚀 Getting Started
 
 First, install [uv](https://docs.astral.sh/uv/getting-started/installation/) if you haven't already.
@@ -292,34 +305,40 @@ python scripts/run_pipeline.py [LORA_BASE_NAME] \
 This script will:
 
 1. Process raw videos in `[basename]_raw/` directory (if they exist):
+
    - Split long videos into scenes
    - Save scenes to `[basename]_scenes/`
 
 2. Generate captions for the scenes (if scenes exist):
+
    - Uses LLaVA-Next-7B for captioning
    - Saves captions to `[basename]_scenes/captions.json`
 
 3. Preprocess the dataset:
+
    - Computes and caches video latents
    - Computes and caches text embeddings
    - Decodes videos for verification
 
 4. Run the training:
+
    - Uses the provided config template
    - Automatically extracts validation prompts from captions
    - Saves the final model weights
 
 5. Convert LoRA to ComfyUI format:
    - Automatically converts the trained LoRA weights to ComfyUI format
-   - Saves the converted weights with "_comfy" suffix
+   - Saves the converted weights with "\_comfy" suffix
 
 Required arguments:
+
 - `basename`: Base name for your project (e.g., "slime")
 - `--resolution-buckets`: Video resolution in format "WxHxF" (e.g., "768x768x49")
 - `--config-template`: Path to your configuration template file
 - `--rank`: LoRA rank (1-128) for training
 
 The script will create the following directory structure:
+
 ```
 [basename]_raw/          # Place your raw videos here
 [basename]_scenes/       # Split scenes and captions
