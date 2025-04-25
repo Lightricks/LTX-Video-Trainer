@@ -1,3 +1,5 @@
+import json
+import tempfile
 from enum import Enum
 from pathlib import Path
 from typing import Union
@@ -23,6 +25,7 @@ class LtxvModelVersion(str, Enum):
     LTXV_2B_090 = "LTXV_2B_0.9.0"
     LTXV_2B_091 = "LTXV_2B_0.9.1"
     LTXV_2B_095 = "LTXV_2B_0.9.5"
+    LTXV_13B_097_DEV = "LTXV_13B_097_DEV"
 
     def __str__(self) -> str:
         """Return the version string."""
@@ -43,6 +46,9 @@ class LtxvModelVersion(str, Enum):
                 return "Lightricks/LTX-Video-0.9.1"
             case LtxvModelVersion.LTXV_2B_095:
                 return "Lightricks/LTX-Video-0.9.5"
+            case LtxvModelVersion.LTXV_13B_097_DEV:
+                raise ValueError("LTXV_13B_097_DEV does not have a HuggingFace repo")
+        raise ValueError(f"Unknown version: {self}")
 
     @property
     def safetensors_url(self) -> str:
@@ -54,6 +60,9 @@ class LtxvModelVersion(str, Enum):
                 return "https://huggingface.co/Lightricks/LTX-Video/blob/main/ltx-video-2b-v0.9.1.safetensors"
             case LtxvModelVersion.LTXV_2B_095:
                 return "https://huggingface.co/Lightricks/LTX-Video/blob/main/ltx-video-2b-v0.9.5.safetensors"
+            case LtxvModelVersion.LTXV_13B_097_DEV:
+                return "https://huggingface.co/Lightricks/LTX-Video/blob/main/ltxv-13b-0.9.7-dev.safetensors"
+        raise ValueError(f"Unknown version: {self}")
 
 
 # Type for model sources - can be:
@@ -148,6 +157,14 @@ def load_vae(
                 subfolder="vae",
                 torch_dtype=dtype,
             )
+        # Special case for LTXV-13B which doesn't yet have a HuggingFace repo.
+        # The VAE is similar to that of 2B v0.9.5
+        elif source == LtxvModelVersion.LTXV_13B_097_DEV:
+            return AutoencoderKLLTXVideo.from_pretrained(
+                LtxvModelVersion.LTXV_2B_095.hf_repo,
+                subfolder="vae",
+                torch_dtype=dtype,
+            )
 
         return AutoencoderKLLTXVideo.from_single_file(
             source.safetensors_url,
@@ -190,6 +207,10 @@ def load_transformer(
             source = version
 
     if isinstance(source, LtxvModelVersion):
+        # Special case for LTXV-13B which doesn't yet have a Diffusers config
+        if source == LtxvModelVersion.LTXV_13B_097_DEV:
+            return _load_ltxv_13b_transformer(source.safetensors_url, dtype=dtype)
+
         return LTXVideoTransformer3DModel.from_single_file(
             source.safetensors_url,
             torch_dtype=dtype,
@@ -282,3 +303,35 @@ def _is_safetensors_url(source: str | Path) -> bool:
     Check if a string is a valid safetensors URL.
     """
     return source.endswith(".safetensors")
+
+
+def _load_ltxv_13b_transformer(safetensors_url: str, *, dtype: torch.dtype) -> LTXVideoTransformer3DModel:
+    """A specific loader for LTXV-13B's transformer which doesn't yet have a Diffusers config"""
+    transformer_13b_config = {
+        "_class_name": "LTXVideoTransformer3DModel",
+        "_diffusers_version": "0.33.0.dev0",
+        "activation_fn": "gelu-approximate",
+        "attention_bias": True,
+        "attention_head_dim": 128,
+        "attention_out_bias": True,
+        "caption_channels": 4096,
+        "cross_attention_dim": 4096,
+        "in_channels": 128,
+        "norm_elementwise_affine": False,
+        "norm_eps": 1e-06,
+        "num_attention_heads": 32,
+        "num_layers": 48,
+        "out_channels": 128,
+        "patch_size": 1,
+        "patch_size_t": 1,
+        "qk_norm": "rms_norm_across_heads",
+    }
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".json") as f:
+        json.dump(transformer_13b_config, f)
+        f.flush()
+        return LTXVideoTransformer3DModel.from_single_file(
+            safetensors_url,
+            config=f.name,
+            torch_dtype=dtype,
+        )

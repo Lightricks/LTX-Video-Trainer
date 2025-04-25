@@ -401,10 +401,11 @@ class LtxvTrainer:
         prepare = self._accelerator.prepare
 
         # Load all model components using the new loader
+        transformer_dtype = torch.bfloat16 if self._config.model.training_mode == "lora" else torch.float32
         components = load_ltxv_components(
             model_source=self._config.model.model_source,
             load_text_encoder_in_8bit=self._config.acceleration.load_text_encoder_in_8bit,
-            transformer_dtype=torch.float32,  # TODO: switch to bfloat16 when training a LoRA?
+            transformer_dtype=transformer_dtype,
             vae_dtype=torch.bfloat16,
         )
 

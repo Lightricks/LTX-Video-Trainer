@@ -2,7 +2,7 @@
 
 # Model configuration
 model:
-  model_source: "LTXV_2B_0.9.5" # Options: "LTXV_2B_0.9.5", "LTXV_2B_0.9.1", "LTXV_2B_0.9.0", or a HF repo/local path
+  model_source: "LTXV_2B_0.9.5" # Options: "LTXV_13B_097_DEV", "LTXV_2B_0.9.5", "LTXV_2B_0.9.1", "LTXV_2B_0.9.0", or a HF repo/local path
   training_mode: "lora" # Options: "lora" or "full"
   load_checkpoint: null # Path to checkpoint file or directory to resume from. If directory, latest checkpoint will be used.
 
