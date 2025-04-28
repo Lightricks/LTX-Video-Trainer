@@ -86,6 +86,3 @@ max-args = 10
 
 [tool.ruff.lint.isort]
 known-first-party = ["ltxv_trainer"]
-
-[tool.uv.sources]
-diffusers = { git = "https://github.com/huggingface/diffusers", rev = "main" }
