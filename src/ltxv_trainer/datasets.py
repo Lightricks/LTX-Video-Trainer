@@ -229,7 +229,7 @@ class ImageOrVideoDataset(Dataset):
         video_path: Path = self.video_paths[index]
         if video_path.suffix.lower() in [".png", ".jpg", ".jpeg"]:
             video = self._preprocess_image(video_path)
-            fps = None
+            fps = -1
         else:
             video, fps = self._preprocess_video(video_path)
 
