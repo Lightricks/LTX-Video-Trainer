@@ -339,10 +339,14 @@ class LtxvTrainer:
         ):
             sigmas = sigmas.repeat(1, packed_latents.shape[1], 1)
             first_frame_end_idx = latent_height * latent_width
-            sigmas[:, :first_frame_end_idx] = 1e-5  # Small sigma close to 0 for the first frame.
-            loss_mask[:, :first_frame_end_idx] = 0.0  # Mask out the loss for the first frame.
-            # TODO: the `timesteps` fed to the transformer should be
-            #  adjusted to reflect zero noise level for the first latent.
+
+            # if we only have one frame (e.g. when training on still images),
+            # skip this step otherwise we have no target to train on.
+            if first_frame_end_idx < packed_latents.shape[1]:
+                sigmas[:, :first_frame_end_idx] = 1e-5  # Small sigma close to 0 for the first frame.
+                loss_mask[:, :first_frame_end_idx] = 0.0  # Mask out the loss for the first frame.
+                # TODO: the `timesteps` fed to the transformer should be
+                #  adjusted to reflect zero noise level for the first latent.
 
         noisy_latents = (1 - sigmas) * packed_latents + sigmas * noise
         targets = noise - packed_latents
