@@ -5,7 +5,7 @@ import warnings
 from copy import deepcopy
 from functools import partial
 from pathlib import Path
-from typing import Callable, Optional
+from typing import Callable, Optional, List
 from unittest.mock import MagicMock
 
 import torch
@@ -204,6 +204,7 @@ class LtxvTrainer:
                         self._lr_scheduler.step()
 
                     # Run validation if needed
+                    sampled_videos_paths: List[Path] = []
                     if (
                         cfg.validation.interval
                         and self._global_step > 0
