@@ -547,6 +547,8 @@ class LtxvTrainer:
 
     def _prepare_models_for_training(self) -> None:
         """Prepare models for training with Accelerate."""
+        from torch.nn.parallel import DistributedDataParallel
+        # Prepare and move models to the correct devices
         prepare = self._accelerator.prepare
         self._vae = prepare(self._vae).to("cpu")
         self._transformer = prepare(self._transformer)
@@ -555,9 +557,19 @@ class LtxvTrainer:
         if not self._config.acceleration.load_text_encoder_in_8bit:
             self._text_encoder = self._text_encoder.to("cpu")
 
-        # Enable gradient checkpointing if requested
+        # Enable gradient checkpointing on the base model if requested
         if self._config.optimization.enable_gradient_checkpointing:
-            self._transformer.enable_gradient_checkpointing()
+            model = self._transformer
+            if isinstance(model, DistributedDataParallel):
+                model = model.module
+            # Use Hugging Face's API if available
+            if hasattr(model, "gradient_checkpointing_enable"):
+                model.gradient_checkpointing_enable()
+            elif hasattr(model, "enable_gradient_checkpointing"):
+                model.enable_gradient_checkpointing()
+            else:
+                logger.warning("Model does not support gradient checkpointing.")
+
 
     @staticmethod
     def _find_checkpoint(checkpoint_path: str | Path) -> Path | None:
