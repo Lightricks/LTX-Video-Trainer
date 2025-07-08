@@ -32,10 +32,17 @@ from ltxv_trainer import logger
     is_flag=True,
     help="Disable progress bars during training",
 )
+@click.option(
+    "--main_process_port",
+    type=int,
+    default=None,
+    help="Override master port for Accelerate distributed communication",
+)
 def main(
     config: str,
     num_processes: int | None,
     disable_progress_bars: bool,
+    main_process_port: int | None,
 ) -> None:
     # Get path to the training script
     script_dir = Path(__file__).parent
@@ -60,16 +67,16 @@ def main(
     # Get the accelerate launch parser
     launch_parser = launch_command_parser()
 
-    # Construct the launch arguments
-    launch_args = [
-        "--num_processes",
-        str(num_processes),
-        training_script,
-        *training_args,
-    ]
-
+    # Construct accelerate launch arguments
+    launch_args = []
     if num_processes > 1:
-        launch_args.insert(0, "--multi_gpu")
+        launch_args.append("--multi_gpu")
+    launch_args.extend(["--num_processes", str(num_processes)])
+    if main_process_port is not None:
+        launch_args.extend(["--main_process_port", str(main_process_port)])
+    # Add the actual training script and its args
+    launch_args.append(training_script)
+    launch_args.extend(training_args)
 
     # Parse the launch arguments
     launch_args = launch_parser.parse_args(launch_args)

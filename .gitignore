@@ -27,3 +27,4 @@ configs/*.yaml
 !configs/ltxv_2b_lora_low_vram.yaml
 outputs
 *.mov
+dataset/
