@@ -10,10 +10,10 @@ The `scripts/convert_checkpoint.py` script converts LoRA weights between Diffuse
 
 ```bash
 # Convert from Diffusers to ComfyUI format
-python scripts/convert_checkpoint.py input.safetensors --to-comfy --output_path output.safetensors
+python scripts/convert_checkpoint.py input.safetensors --to-comfy --output-path output.safetensors
 
 # Convert from ComfyUI to Diffusers format
-python scripts/convert_checkpoint.py input.safetensors --output_path output.safetensors
+python scripts/convert_checkpoint.py input.safetensors --output-path output.safetensors
 ```
 
 **Key features:**
