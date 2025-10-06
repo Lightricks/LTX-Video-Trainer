@@ -67,7 +67,7 @@ All detailed guides and technical documentation have been moved to the `docs/` d
 
 ## 🔥 Changelog
 
-- **08.07.2025:** Added support for training IC-LoRAs (In-Context LoRAs) for advanced video-to-video transformations. See the [training modes](https://github.com/LightricksResearch/LTX-Video-Trainer-Internal/blob/main/docs/training-modes.md#-in-context-lora-ic-lora-training) doc for more details.
+- **08.07.2025:** Added support for training IC-LoRAs (In-Context LoRAs) for advanced video-to-video transformations. See the [training modes](https://github.com/Lightricks/LTX-Video-Trainer/blob/main/docs/training-modes.md#-in-context-lora-ic-lora-training) doc for more details.
 Pretrained control models: [Depth](https://huggingface.co/Lightricks/LTX-Video-ICLoRA-depth-13b-0.9.7), [Pose](https://huggingface.co/Lightricks/LTX-Video-ICLoRA-pose-13b-0.9.7), [Canny](https://huggingface.co/Lightricks/LTX-Video-ICLoRA-canny-13b-0.9.7).
 - **06.05.2025:** Added support for LTXV 13B.
   An example training configuration can be found [here](configs/ltxv_13b_lora_cakeify.yaml).
