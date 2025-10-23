@@ -125,3 +125,15 @@ Parts of this project are inspired by and incorporate ideas from several awesome
 ---
 
 Happy training! 🎉
+
+## 📝 Please Cite
+
+If you use this repository in your research or projects, please use the following citation:
+```
+@misc{LTXVideoTrainer2025,
+  title={LTX-Video Community Trainer},
+  author={Matan Ben Yosef and Naomi Ken Korem and Tavi Halperin},
+  year={2025},
+  publisher={GitHub},
+}
+```
