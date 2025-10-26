@@ -124,8 +124,6 @@ Parts of this project are inspired by and incorporate ideas from several awesome
 
 ---
 
-Happy training! 🎉
-
 ## 📝 Please Cite
 
 If you use this repository in your research or projects, please use the following citation:
@@ -137,3 +135,5 @@ If you use this repository in your research or projects, please use the followin
   publisher={GitHub},
 }
 ```
+
+Happy training! 🎉
