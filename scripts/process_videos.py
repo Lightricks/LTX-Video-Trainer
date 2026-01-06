@@ -213,17 +213,20 @@ class MediaDataset(Dataset):
         """Filter out videos with insufficient frames."""
         original_length = len(self.video_paths)
         valid_video_paths = []
+        valid_main_media_paths = []
         min_frames_required = min(self.resolution_buckets, key=lambda x: x[0])[0]
 
-        for video_path in self.video_paths:
+        for video_path, media_path in zip(self.video_paths, self.main_media_paths):
             if video_path.suffix.lower() in [".png", ".jpg", ".jpeg"]:
                 valid_video_paths.append(video_path)
+                valid_main_media_paths.append(media_path)
                 continue
 
             try:
                 video_reader = decord.VideoReader(uri=video_path.as_posix())
                 if len(video_reader) >= min_frames_required:
                     valid_video_paths.append(video_path)
+                    valid_main_media_paths.append(media_path)
                 else:
                     logger.warning(
                         f"Skipping video at {video_path} - has {len(video_reader)} frames, "
@@ -234,6 +237,7 @@ class MediaDataset(Dataset):
 
         # Update video paths to only include valid ones
         self.video_paths = valid_video_paths
+        self.main_media_paths = valid_main_media_paths
 
         if len(self.video_paths) < original_length:
             logger.warning(
