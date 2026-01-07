@@ -26,4 +26,7 @@ configs/*.yaml
 !configs/ltxv_2b_full.yaml
 !configs/ltxv_2b_lora.yaml
 !configs/ltxv_2b_lora_low_vram.yaml
-outputs
+outputs/
+datasets/
+training_data/
+*.db
